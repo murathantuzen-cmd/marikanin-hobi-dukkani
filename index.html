@@ -150,22 +150,23 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // Firebase Ayarlarınız (Project ID: site-6efbc)
+    // Firebase Ayarlarınız (Verdiğiniz bilgilerle güncellendi)
     const firebaseConfig = {
-      apiKey: "BURAYA_FIREBASE_API_KEY_YAZILACAK", 
+      apiKey: "AIzaSyByNELK5X2eqYQqe1SVX5z7wzZH8ureRkg",
       authDomain: "site-6efbc.firebaseapp.com",
       databaseURL: "https://site-6efbc-default-rtdb.firebaseio.com",
       projectId: "site-6efbc",
-      storageBucket: "site-6efbc.appspot.com",
+      storageBucket: "site-6efbc.firebasestorage.app",
       messagingSenderId: "610452896455",
-      appId: "1:610452896455:web:example"
+      appId: "1:610452896455:web:1bd8eeb452b0a96f9a9ce2",
+      measurementId: "G-EP2XBVVHH4"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const urunlerRef = ref(db, 'urunler');
 
-    const WHATSAPP_NO = "905444164940"; // Annenizin numarası entegre edildi
+    const WHATSAPP_NO = "905444164940"; // Annenizin WhatsApp Numarası
     const ADMIN_SIFRE = "1234"; // Yönetici Şifresi
 
     let isAdminLoggedIn = false;
