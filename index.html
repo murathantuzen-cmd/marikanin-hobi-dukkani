@@ -150,7 +150,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // Firebase Ayarlarınız (Verdiğiniz bilgilerle güncellendi)
+    // Firebase Ayarlarınız
     const firebaseConfig = {
       apiKey: "AIzaSyByNELK5X2eqYQqe1SVX5z7wzZH8ureRkg",
       authDomain: "site-6efbc.firebaseapp.com",
@@ -166,14 +166,24 @@
     const db = getDatabase(app);
     const urunlerRef = ref(db, 'urunler');
 
-    const WHATSAPP_NO = "905446374940"; // Annenizin WhatsApp Numarası
-    const ADMIN_SIFRE = "1234"; // Yönetici Şifresi
+    const WHATSAPP_NO = "905446374940"; // Annenizin güncel numarası
+    const ADMIN_SIFRE = "1234"; 
 
     let isAdminLoggedIn = false;
-    let sepet = [];
+    
+    // KALICI SEPET: Sayfa yenilense de silinmemesi için localStorage okuma
+    let sepet = JSON.parse(localStorage.getItem('musteriSepet')) || [];
     let urunler = [];
 
-    // Veritabanını Anlık Dinle (Ekleme/Silme Herkese Anında Yansır)
+    // Sepet Sayacını İlk Açılışta Güncelle
+    document.getElementById('cartCount').innerText = sepet.length;
+
+    function sepetiKaydet() {
+      localStorage.setItem('musteriSepet', JSON.stringify(sepet));
+      document.getElementById('cartCount').innerText = sepet.length;
+    }
+
+    // Veritabanını Anlık Dinle
     onValue(urunlerRef, (snapshot) => {
       const data = snapshot.val();
       urunler = [];
@@ -240,20 +250,20 @@
       document.getElementById('detailModal').style.display = 'flex';
     }
 
-    // Sepete Ekle
+    // Sepete Ekle (Kalıcı Kaydeder)
     window.sepeteEkle = function(id) {
       const urun = urunler.find(u => u.firebaseId === id);
       if (urun) {
         sepet.push(urun);
-        document.getElementById('cartCount').innerText = sepet.length;
+        sepetiKaydet();
         alert(`"${urun.name}" sepete eklendi!`);
       }
     }
 
-    // Sepetten Çıkar
+    // Sepetten Çıkar (Hafızadan Günceller)
     window.sepettenCikar = function(index) {
       sepet.splice(index, 1);
-      document.getElementById('cartCount').innerText = sepet.length;
+      sepetiKaydet();
       sepetiAc();
     }
 
@@ -313,6 +323,11 @@
       mesaj += `\n*Toplam Tutar:* ${toplam} TL`;
 
       const waLink = `https://wa.me/${WHATSAPP_NO}?text=${encodeURIComponent(mesaj)}`;
+      
+      // Sipariş verildikten sonra sepeti temizleyebiliriz
+      sepet = [];
+      sepetiKaydet();
+      
       window.open(waLink, '_blank');
     }
 
@@ -324,7 +339,7 @@
           isAdminLoggedIn = true;
           document.getElementById('adminPanel').style.display = 'block';
           urunleriListele();
-          alert("Giriş başarılı! Yapılan değişiklikler tüm ziyaretçiler için anında geçerli olacaktır.");
+          alert("Giriş başarılı!");
         } else if (sifre !== null) {
           alert("Hatalı şifre!");
         }
@@ -364,15 +379,15 @@
         document.getElementById('pPrice').value = '';
         document.getElementById('pImg').value = '';
         document.getElementById('pDesc').value = '';
-        alert("Ürün eklendi! Sitedeki tüm ziyaretçilerin ekranından görülebilir.");
+        alert("Ürün eklendi!");
       });
     }
 
     // Ürün Sil
     window.urunSil = function(id) {
-      if (confirm("Bu ürünü silmek istediğinize emin misiniz? Ürün sitedeki tüm kullanıcılar için silinecektir.")) {
+      if (confirm("Bu ürünü silmek istediğinize emin misiniz?")) {
         remove(ref(db, 'urunler/' + id)).then(() => {
-          alert("Ürün tüm ziyaretçiler için silindi.");
+          alert("Ürün silindi.");
         });
       }
     }
