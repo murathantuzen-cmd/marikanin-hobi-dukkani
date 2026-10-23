@@ -164,7 +164,7 @@
   <!-- Firebase Modülleri -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, push, onValue, remove, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, push, onValue, remove, set, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     // Firebase Ayarlarınız
     const firebaseConfig = {
@@ -182,11 +182,11 @@
     const db = getDatabase(app);
     const urunlerRef = ref(db, 'urunler');
 
-    const WHATSAPP_NO = "905446374940"; // Annenizin WhatsApp Numarası
+    const WHATSAPP_NO = "905446374940"; // Annenizin güncel numarası
     const ADMIN_SIFRE = "1234"; 
 
     let isAdminLoggedIn = false;
-    let editingId = null; // Düzenlenen ürünün Firebase ID'sini tutar
+    let editingId = null;
     let sepet = JSON.parse(localStorage.getItem('musteriSepet')) || [];
     let urunler = [];
 
@@ -345,11 +345,30 @@
       document.getElementById('cartModal').style.display = 'flex';
     }
 
-    // WhatsApp Sipariş
+    // WhatsApp Sipariş ve Stokları Otomatik Düşürme
     window.whatsappSiparisGonder = function() {
       if (sepet.length === 0) {
         alert("Sepetiniz boş!");
         return;
+      }
+
+      // Sepetteki ürünlerin adetlerini hesapla
+      let itemCounts = {};
+      sepet.forEach(item => {
+        itemCounts[item.firebaseId] = (itemCounts[item.firebaseId] || 0) + 1;
+      });
+
+      // Firebase'deki stokları güncelleyip azalt
+      for (let id in itemCounts) {
+        const urun = urunler.find(u => u.firebaseId === id);
+        if (urun) {
+          const mevcutStok = Number(urun.stock || 0);
+          const istenenAdet = itemCounts[id];
+          const yeniStok = Math.max(0, mevcutStok - istenenAdet);
+
+          // Veritabanındaki stoğu güncelle
+          update(ref(db, 'urunler/' + id), { stock: yeniStok });
+        }
       }
 
       let mesaj = "Merhaba, sitenizden şu el yapımı ürünleri sipariş vermek istiyorum:\n\n";
@@ -369,8 +388,10 @@
 
       const waLink = `https://wa.me/${WHATSAPP_NO}?text=${encodeURIComponent(mesaj)}`;
       
+      // Sepeti temizle ve kaydet
       sepet = [];
       sepetiKaydet();
+      kapatModal('cartModal');
       
       window.open(waLink, '_blank');
     }
@@ -393,7 +414,7 @@
       }
     }
 
-    // Ürün Düzenlemeyi Başlat (Formu doldur)
+    // Ürün Düzenlemeyi Başlat
     window.urunDuzenleBaslat = function(id) {
       const urun = urunler.find(u => u.firebaseId === id);
       if (!urun) return;
@@ -461,13 +482,11 @@
       };
 
       if (editingId) {
-        // Mevcut ürünü güncelle
         set(ref(db, 'urunler/' + editingId), yeniUrun).then(() => {
           alert("Ürün başarıyla güncellendi!");
           duzenlemeyiIptalEt();
         });
       } else {
-        // Yeni ürün ekle
         push(urunlerRef, yeniUrun).then(() => {
           alert("Yeni ürün eklendi!");
           formuTemizle();
