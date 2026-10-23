@@ -25,7 +25,10 @@
     .form-group { margin-bottom: 12px; flex: 1; }
     .form-group label { display: block; margin-bottom: 5px; font-size: 14px; font-weight: 600; }
     .form-group input, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-    .btn-add { background: #27ae60; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
+    
+    .admin-btn-group { display: flex; gap: 10px; margin-top: 10px; }
+    .btn-add { background: #27ae60; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; flex: 2; }
+    .btn-cancel-edit { background: #95a5a6; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; flex: 1; display: none; }
 
     /* Ürün Izgarası */
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
@@ -45,6 +48,7 @@
     .card-actions { margin-top: auto; display: flex; gap: 5px; flex-direction: column; }
     .btn-add-cart { background: #d87d4a; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; }
     .btn-delete { background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .btn-edit { background: #f39c12; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
 
     /* Modal Genel Stili */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
@@ -79,7 +83,7 @@
     
     <!-- Yönetici Paneli -->
     <div id="adminPanel" class="admin-panel">
-      <h2>Yeni Obje / Sepet Ekle</h2>
+      <h2 id="adminFormTitle">Yeni Obje / Sepet Ekle</h2>
       <div class="form-group">
         <label>Ürün Adı</label>
         <input type="text" id="pName" placeholder="Örn: Taş Tozu Dekoratif Tepsi, Örgü İp Sepet">
@@ -88,27 +92,38 @@
       <div class="form-row">
         <div class="form-group">
           <label>Boyut (cm)</label>
-          <input type="text" id="pDimensions" placeholder="Örn: 15x20 cm, Yükseklik: 10 cm">
+          <input type="text" id="pDimensions" placeholder="Örn: 15x20 cm">
         </div>
         <div class="form-group">
           <label>Ağırlık (gr / kg)</label>
-          <input type="text" id="pWeight" placeholder="Örn: 450 gr veya 1.2 kg">
+          <input type="text" id="pWeight" placeholder="Örn: 450 gr">
         </div>
       </div>
 
-      <div class="form-group">
-        <label>Fiyat (TL)</label>
-        <input type="number" id="pPrice" placeholder="Örn: 180">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Fiyat (TL)</label>
+          <input type="number" id="pPrice" placeholder="Örn: 180">
+        </div>
+        <div class="form-group">
+          <label>Stok Adedi</label>
+          <input type="number" id="pStock" placeholder="Örn: 10">
+        </div>
       </div>
+
       <div class="form-group">
         <label>Görsel Bağlantısı (URL)</label>
         <input type="text" id="pImg" placeholder="https://resim-linki.com/foto.jpg">
       </div>
       <div class="form-group">
         <label>Açıklama / Vernik / Malzeme Detayı</label>
-        <textarea id="pDesc" rows="3" placeholder="Örn: Birinci sınıf taş tozundan dökülmüştür, su geçirmez koruyucu vernik uygulanmıştır."></textarea>
+        <textarea id="pDesc" rows="3" placeholder="Örn: Birinci sınıf taş tozundan dökülmüştür..."></textarea>
       </div>
-      <button class="btn-add" onclick="urunEkle()">Ürünü Mağazaya Ekle</button>
+
+      <div class="admin-btn-group">
+        <button id="submitBtn" class="btn-add" onclick="urunKaydet()">Ürünü Mağazaya Ekle</button>
+        <button id="cancelEditBtn" class="btn-cancel-edit" onclick="duzenlemeyiIptalEt()">İptal</button>
+      </div>
     </div>
 
     <!-- Ürün Listesi -->
@@ -126,6 +141,7 @@
       <div class="detail-specs">
         <div id="modalDimensions"></div>
         <div id="modalWeight"></div>
+        <div id="modalStock"></div>
       </div>
 
       <div id="modalPrice" class="card-price"></div>
@@ -148,7 +164,7 @@
   <!-- Firebase Modülleri -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, push, onValue, remove, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     // Firebase Ayarlarınız
     const firebaseConfig = {
@@ -166,16 +182,14 @@
     const db = getDatabase(app);
     const urunlerRef = ref(db, 'urunler');
 
-    const WHATSAPP_NO = "905446374940"; // Annenizin güncel numarası
+    const WHATSAPP_NO = "905446374940"; // Annenizin WhatsApp Numarası
     const ADMIN_SIFRE = "1234"; 
 
     let isAdminLoggedIn = false;
-    
-    // KALICI SEPET: Sayfa yenilense de silinmemesi için localStorage okuma
+    let editingId = null; // Düzenlenen ürünün Firebase ID'sini tutar
     let sepet = JSON.parse(localStorage.getItem('musteriSepet')) || [];
     let urunler = [];
 
-    // Sepet Sayacını İlk Açılışta Güncelle
     document.getElementById('cartCount').innerText = sepet.length;
 
     function sepetiKaydet() {
@@ -206,6 +220,16 @@
       }
 
       urunler.forEach(urun => {
+        const stokBitti = (urun.stock !== undefined && Number(urun.stock) <= 0);
+        
+        const stokEtiketi = stokBitti 
+          ? `<span class="tag" style="background:#e74c3c; color:white; font-weight:bold;">Stok Tükendi</span>` 
+          : `<span class="tag" style="background:#27ae60; color:white;">Stok: ${urun.stock ?? 'Sınırsız'}</span>`;
+
+        const sepeteEkleBtn = stokBitti
+          ? `<button class="btn-add-cart" style="background:#ccc; cursor:not-allowed;" disabled>Tükendi</button>`
+          : `<button class="btn-add-cart" onclick="sepeteEkle('${urun.firebaseId}')">Sepete Ekle</button>`;
+
         grid.innerHTML += `
           <div class="card" onclick="detayGoster('${urun.firebaseId}')">
             <img src="${urun.img}" alt="${urun.name}" onerror="this.src='https://via.placeholder.com/300'">
@@ -215,13 +239,17 @@
               <div class="specs-tags">
                 ${urun.dimensions ? `<span class="tag">📐 ${urun.dimensions}</span>` : ''}
                 ${urun.weight ? `<span class="tag">⚖️ ${urun.weight}</span>` : ''}
+                ${stokEtiketi}
               </div>
 
               <div class="card-price">${urun.price} TL</div>
               
               <div class="card-actions" onclick="event.stopPropagation()">
-                <button class="btn-add-cart" onclick="sepeteEkle('${urun.firebaseId}')">Sepete Ekle</button>
-                ${isAdminLoggedIn ? `<button class="btn-delete" onclick="urunSil('${urun.firebaseId}')">Ürünü Sil</button>` : ''}
+                ${sepeteEkleBtn}
+                ${isAdminLoggedIn ? `
+                  <button class="btn-edit" onclick="urunDuzenleBaslat('${urun.firebaseId}')">Ürünü Düzenle</button>
+                  <button class="btn-delete" onclick="urunSil('${urun.firebaseId}')">Ürünü Sil</button>
+                ` : ''}
               </div>
             </div>
           </div>
@@ -238,29 +266,46 @@
       document.getElementById('modalTitle').innerText = urun.name;
       document.getElementById('modalDimensions').innerHTML = urun.dimensions ? `<strong>📐 Ebat / Boyut:</strong> ${urun.dimensions}` : '';
       document.getElementById('modalWeight').innerHTML = urun.weight ? `<strong>⚖️ Ağırlık:</strong> ${urun.weight}` : '';
+      
+      const stokBitti = (urun.stock !== undefined && Number(urun.stock) <= 0);
+      document.getElementById('modalStock').innerHTML = `<strong>📦 Stok Durumu:</strong> ${stokBitti ? 'Tükendi' : urun.stock + ' adet'}`;
+
       document.getElementById('modalPrice').innerText = urun.price + ' TL';
       document.getElementById('modalDesc').innerText = urun.desc || "Açıklama belirtilmemiş.";
       
       const addBtn = document.getElementById('modalAddBtn');
-      addBtn.onclick = function() {
-        sepeteEkle(urun.firebaseId);
-        kapatModal('detailModal');
-      };
+      if (stokBitti) {
+        addBtn.innerText = "Stok Tükendi";
+        addBtn.style.background = "#ccc";
+        addBtn.disabled = true;
+      } else {
+        addBtn.innerText = "Sepete Ekle";
+        addBtn.style.background = "#d87d4a";
+        addBtn.disabled = false;
+        addBtn.onclick = function() {
+          sepeteEkle(urun.firebaseId);
+          kapatModal('detailModal');
+        };
+      }
 
       document.getElementById('detailModal').style.display = 'flex';
     }
 
-    // Sepete Ekle (Kalıcı Kaydeder)
+    // Sepete Ekle
     window.sepeteEkle = function(id) {
       const urun = urunler.find(u => u.firebaseId === id);
       if (urun) {
+        if (urun.stock !== undefined && Number(urun.stock) <= 0) {
+          alert("Üzgünüz, bu ürünün stoğu tükenmiştir!");
+          return;
+        }
         sepet.push(urun);
         sepetiKaydet();
         alert(`"${urun.name}" sepete eklendi!`);
       }
     }
 
-    // Sepetten Çıkar (Hafızadan Günceller)
+    // Sepetten Çıkar
     window.sepettenCikar = function(index) {
       sepet.splice(index, 1);
       sepetiKaydet();
@@ -324,7 +369,6 @@
 
       const waLink = `https://wa.me/${WHATSAPP_NO}?text=${encodeURIComponent(mesaj)}`;
       
-      // Sipariş verildikten sonra sepeti temizleyebiliriz
       sepet = [];
       sepetiKaydet();
       
@@ -349,17 +393,60 @@
       }
     }
 
-    // Ürün Ekle
-    window.urunEkle = function() {
+    // Ürün Düzenlemeyi Başlat (Formu doldur)
+    window.urunDuzenleBaslat = function(id) {
+      const urun = urunler.find(u => u.firebaseId === id);
+      if (!urun) return;
+
+      document.getElementById('pName').value = urun.name;
+      document.getElementById('pDimensions').value = urun.dimensions || '';
+      document.getElementById('pWeight').value = urun.weight || '';
+      document.getElementById('pPrice').value = urun.price;
+      document.getElementById('pStock').value = urun.stock ?? 0;
+      document.getElementById('pImg').value = urun.img;
+      document.getElementById('pDesc').value = urun.desc || '';
+
+      editingId = id;
+      document.getElementById('adminFormTitle').innerText = "Ürünü Düzenle";
+      document.getElementById('submitBtn').innerText = "Ürün Bilgilerini Güncelle";
+      document.getElementById('cancelEditBtn').style.display = 'block';
+
+      document.getElementById('adminPanel').style.display = 'block';
+      document.getElementById('adminPanel').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Düzenlemeyi İptal Et
+    window.duzenlemeyiIptalEt = function() {
+      editingId = null;
+      document.getElementById('adminFormTitle').innerText = "Yeni Obje / Sepet Ekle";
+      document.getElementById('submitBtn').innerText = "Ürünü Mağazaya Ekle";
+      document.getElementById('cancelEditBtn').style.display = 'none';
+      formuTemizle();
+    }
+
+    // Formu Temizleme
+    function formuTemizle() {
+      document.getElementById('pName').value = '';
+      document.getElementById('pDimensions').value = '';
+      document.getElementById('pWeight').value = '';
+      document.getElementById('pPrice').value = '';
+      document.getElementById('pStock').value = '';
+      document.getElementById('pImg').value = '';
+      document.getElementById('pDesc').value = '';
+    }
+
+    // Ürün Ekle veya Güncelle
+    window.urunKaydet = function() {
       const name = document.getElementById('pName').value.trim();
       const dimensions = document.getElementById('pDimensions').value.trim();
       const weight = document.getElementById('pWeight').value.trim();
       const price = document.getElementById('pPrice').value.trim();
+      const stock = document.getElementById('pStock').value.trim();
       const img = document.getElementById('pImg').value.trim();
       const desc = document.getElementById('pDesc').value.trim();
 
-      if (!name || !price || !img) {
-        alert("Lütfen ürün adı, fiyatı ve görsel bağlantısını doldurun!");
+      if (!name || !price || !img || stock === "") {
+        alert("Lütfen ürün adı, fiyatı, stok adedi ve görsel bağlantısını doldurun!");
         return;
       }
 
@@ -368,19 +455,24 @@
         dimensions: dimensions,
         weight: weight,
         price: Number(price),
+        stock: Number(stock),
         img: img,
         desc: desc
       };
 
-      push(urunlerRef, yeniUrun).then(() => {
-        document.getElementById('pName').value = '';
-        document.getElementById('pDimensions').value = '';
-        document.getElementById('pWeight').value = '';
-        document.getElementById('pPrice').value = '';
-        document.getElementById('pImg').value = '';
-        document.getElementById('pDesc').value = '';
-        alert("Ürün eklendi!");
-      });
+      if (editingId) {
+        // Mevcut ürünü güncelle
+        set(ref(db, 'urunler/' + editingId), yeniUrun).then(() => {
+          alert("Ürün başarıyla güncellendi!");
+          duzenlemeyiIptalEt();
+        });
+      } else {
+        // Yeni ürün ekle
+        push(urunlerRef, yeniUrun).then(() => {
+          alert("Yeni ürün eklendi!");
+          formuTemizle();
+        });
+      }
     }
 
     // Ürün Sil
