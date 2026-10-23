@@ -182,7 +182,7 @@
     const db = getDatabase(app);
     const urunlerRef = ref(db, 'urunler');
 
-    const WHATSAPP_NO = "905446374940"; // Annenizin güncel numarası
+    const WHATSAPP_NO = "905446374940"; 
     const ADMIN_SIFRE = "1234"; 
 
     let isAdminLoggedIn = false;
@@ -224,7 +224,7 @@
         
         const stokEtiketi = stokBitti 
           ? `<span class="tag" style="background:#e74c3c; color:white; font-weight:bold;">Stok Tükendi</span>` 
-          : `<span class="tag" style="background:#27ae60; color:white;">Stok: ${urun.stock ?? 'Sınırsız'}</span>`;
+          : `<span class="tag" style="background:#27ae60; color:white;">Stok: ${urun.stock ?? 0}</span>`;
 
         const sepeteEkleBtn = stokBitti
           ? `<button class="btn-add-cart" style="background:#ccc; cursor:not-allowed;" disabled>Tükendi</button>`
@@ -291,22 +291,39 @@
       document.getElementById('detailModal').style.display = 'flex';
     }
 
-    // Sepete Ekle
+    // Sepete Ekle - TIKLANDIĞI AN ANINDA STOK DÜŞER!
     window.sepeteEkle = function(id) {
       const urun = urunler.find(u => u.firebaseId === id);
-      if (urun) {
-        if (urun.stock !== undefined && Number(urun.stock) <= 0) {
-          alert("Üzgünüz, bu ürünün stoğu tükenmiştir!");
-          return;
-        }
-        sepet.push(urun);
-        sepetiKaydet();
-        alert(`"${urun.name}" sepete eklendi!`);
+      if (!urun) return;
+
+      const mevcutStok = Number(urun.stock ?? 0);
+
+      if (mevcutStok <= 0) {
+        alert("Üzgünüz, bu ürünün stoğu tükenmiştir!");
+        return;
       }
+
+      // Veritabanındaki stoğu 1 azalt
+      const yeniStok = mevcutStok - 1;
+      update(ref(db, 'urunler/' + id), { stock: yeniStok });
+
+      // Sepete ekle ve kaydet
+      sepet.push(urun);
+      sepetiKaydet();
+      alert(`"${urun.name}" sepete eklendi! (Kalan Stok: ${yeniStok})`);
     }
 
-    // Sepetten Çıkar
+    // Sepetten Çıkar - ÇIKARILDIĞINDA STOK GERİ YÜKLENİR
     window.sepettenCikar = function(index) {
+      const cikarilanUrun = sepet[index];
+      if (cikarilanUrun) {
+        const urun = urunler.find(u => u.firebaseId === cikarilanUrun.firebaseId);
+        if (urun) {
+          const mevcutStok = Number(urun.stock ?? 0);
+          update(ref(db, 'urunler/' + urun.firebaseId), { stock: mevcutStok + 1 });
+        }
+      }
+
       sepet.splice(index, 1);
       sepetiKaydet();
       sepetiAc();
@@ -345,30 +362,11 @@
       document.getElementById('cartModal').style.display = 'flex';
     }
 
-    // WhatsApp Sipariş ve Stokları Otomatik Düşürme
+    // WhatsApp Sipariş
     window.whatsappSiparisGonder = function() {
       if (sepet.length === 0) {
         alert("Sepetiniz boş!");
         return;
-      }
-
-      // Sepetteki ürünlerin adetlerini hesapla
-      let itemCounts = {};
-      sepet.forEach(item => {
-        itemCounts[item.firebaseId] = (itemCounts[item.firebaseId] || 0) + 1;
-      });
-
-      // Firebase'deki stokları güncelleyip azalt
-      for (let id in itemCounts) {
-        const urun = urunler.find(u => u.firebaseId === id);
-        if (urun) {
-          const mevcutStok = Number(urun.stock || 0);
-          const istenenAdet = itemCounts[id];
-          const yeniStok = Math.max(0, mevcutStok - istenenAdet);
-
-          // Veritabanındaki stoğu güncelle
-          update(ref(db, 'urunler/' + id), { stock: yeniStok });
-        }
       }
 
       let mesaj = "Merhaba, sitenizden şu el yapımı ürünleri sipariş vermek istiyorum:\n\n";
@@ -388,7 +386,6 @@
 
       const waLink = `https://wa.me/${WHATSAPP_NO}?text=${encodeURIComponent(mesaj)}`;
       
-      // Sepeti temizle ve kaydet
       sepet = [];
       sepetiKaydet();
       kapatModal('cartModal');
