@@ -20,7 +20,7 @@
     .header-btns button { background: white; color: #d87d4a; border: none; padding: 8px 15px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.2s; white-space: nowrap; }
     .header-btns button:hover { background: #fdf0e9; }
 
-    /* Üst Navigasyon Barı (Trendyol Tarzı) */
+    /* Üst Navigasyon Barı */
     .top-nav-bar { background: #fff; border-bottom: 2px solid #e0e0e0; padding: 0 3%; display: flex; gap: 15px; overflow-x: auto; }
     .top-nav-item { padding: 12px 18px; font-weight: 600; font-size: 14px; color: #555; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.2s; white-space: nowrap; }
     .top-nav-item:hover, .top-nav-item.active { color: #d87d4a; border-bottom-color: #d87d4a; background: #fafafa; }
@@ -43,7 +43,7 @@
     /* Sağ Ana İçerik Alanı */
     .content { flex: 1; padding: 20px; max-width: 1200px; }
 
-    /* TRENDYOL TARZI ANA SAYFA BÖLÜMLERİ */
+    /* Vitrin Bölümleri */
     .hero-banner { background: linear-gradient(135deg, #e67e22, #d87d4a); color: white; padding: 30px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
     .hero-banner h2 { font-size: 26px; margin-bottom: 8px; }
     .hero-banner p { font-size: 15px; opacity: 0.95; }
@@ -72,10 +72,12 @@
     /* Ürün Izgarası */
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
     
-    /* Ürün Kartı */
+    /* Ürün Kartı & GÖRSEL STİLİ (Fotoğrafın Her Yeri Görünür) */
     .card { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: transform 0.2s; display: flex; flex-direction: column; cursor: pointer; }
     .card:hover { transform: translateY(-3px); }
-    .card img { width: 100%; height: 200px; object-fit: cover; }
+    .img-wrapper { width: 100%; height: 220px; background-color: #fafafa; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #f0f0f0; }
+    .card img { max-width: 100%; max-height: 100%; object-fit: contain; } /* Kırpma yapılmaz, her yeri görünür */
+    
     .card-body { padding: 15px; display: flex; flex-direction: column; flex-grow: 1; }
     .card-title { font-size: 15px; font-weight: bold; margin-bottom: 6px; color: #222; }
     
@@ -94,7 +96,9 @@
     .modal-content { background: white; padding: 25px; border-radius: 8px; max-width: 500px; width: 90%; max-height: 85vh; overflow-y: auto; position: relative; }
     .close-btn { position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: #888; }
     
-    .detail-img { width: 100%; height: 250px; object-fit: cover; border-radius: 6px; margin-bottom: 15px; }
+    .detail-img-wrapper { width: 100%; height: 280px; background-color: #fafafa; display: flex; align-items: center; justify-content: center; border-radius: 6px; margin-bottom: 15px; border: 1px solid #eee; }
+    .detail-img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    
     .detail-specs { background: #fafafa; border: 1px dashed #ddd; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 13px; line-height: 1.6; }
     .detail-desc { margin: 10px 0; line-height: 1.5; color: #555; }
 
@@ -144,13 +148,11 @@
         <span>🏠 Ana Sayfa</span>
       </div>
 
-      <!-- Tıklayınca Açılan Kategoriler Başlığı -->
       <div class="menu-item" onclick="toggleKategoriler()">
         <span>📦 Kategoriler</span>
         <span id="catArrow">▼</span>
       </div>
       
-      <!-- Açılır Alt Menü -->
       <div id="kategoriSubmenu" class="submenu">
         <div class="menu-item" onclick="kategoriSec('hepsi', this)">✨ Tümü</div>
         <div class="menu-item" onclick="kategoriSec('tas_tozu', this)">⚪ Taş Tozu</div>
@@ -223,10 +225,12 @@
           </div>
         </div>
 
+        <!-- BILGISAYARDAN FOTOĞRAF YÜKLEME ALANI -->
         <div class="form-group">
-          <label>Görsel Bağlantısı (URL)</label>
-          <input type="text" id="pImg" placeholder="https://resim-linki.com/foto.jpg">
+          <label>Ürün Görseli Seç (Bilgisayardan / Telefondan)</label>
+          <input type="file" id="pFile" accept="image/*">
         </div>
+        
         <div class="form-group">
           <label>Açıklama / Vernik / Malzeme Detayı</label>
           <textarea id="pDesc" rows="3" placeholder="Örn: Birinci sınıf taş tozundan dökülmüştür..."></textarea>
@@ -248,7 +252,9 @@
   <div id="detailModal" class="modal">
     <div class="modal-content">
       <span class="close-btn" onclick="kapatModal('detailModal')">&times;</span>
-      <img id="modalImg" class="detail-img" src="" alt="">
+      <div class="detail-img-wrapper">
+        <img id="modalImg" class="detail-img" src="" alt="">
+      </div>
       <h2 id="modalTitle"></h2>
       
       <div class="detail-specs">
@@ -300,7 +306,8 @@
 
     let isAdminLoggedIn = false;
     let editingId = null;
-    let aktifKategori = 'home'; // Varsayılan olarak Ana Sayfada Başlar
+    let currentEditImg = ""; // Düzenleme durumunda eski resmi korumak için
+    let aktifKategori = 'home';
     let sepet = JSON.parse(localStorage.getItem('musteriSepet')) || [];
     let urunler = [];
 
@@ -328,7 +335,6 @@
       const aramaMetni = document.getElementById('searchInput').value.toLowerCase();
       const homeView = document.getElementById('homeView');
 
-      // Eğer aramada kelime yazıldıysa veya kategori seçildiyse Ana Sayfa vitrinini gizle
       if (aramaMetni !== '') {
         homeView.style.display = 'none';
       } else if (aktifKategori === 'home') {
@@ -356,9 +362,7 @@
         el.classList.add('active');
       }
 
-      // Arama kutusunu sıfırla
       document.getElementById('searchInput').value = '';
-
       urunFiltrele();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -399,7 +403,9 @@
 
         grid.innerHTML += `
           <div class="card" onclick="detayGoster('${urun.firebaseId}')">
-            <img src="${urun.img}" alt="${urun.name}" onerror="this.src='https://via.placeholder.com/300'">
+            <div class="img-wrapper">
+              <img src="${urun.img}" alt="${urun.name}" onerror="this.src='https://via.placeholder.com/300?text=Gorsel+Yok'">
+            </div>
             <div class="card-body">
               <div class="card-title">${urun.name}</div>
               
@@ -589,8 +595,9 @@
       document.getElementById('pWeight').value = urun.weight || '';
       document.getElementById('pPrice').value = urun.price;
       document.getElementById('pStock').value = urun.stock ?? 0;
-      document.getElementById('pImg').value = urun.img;
       document.getElementById('pDesc').value = urun.desc || '';
+      
+      currentEditImg = urun.img; // Mevcut resmi sakla
 
       editingId = id;
       document.getElementById('adminFormTitle').innerText = "Ürünü Düzenle";
@@ -604,6 +611,7 @@
     // Düzenlemeyi İptal Et
     window.duzenlemeyiIptalEt = function() {
       editingId = null;
+      currentEditImg = "";
       document.getElementById('adminFormTitle').innerText = "Yeni Obje / Sepet Ekle";
       document.getElementById('submitBtn').innerText = "Ürünü Mağazaya Ekle";
       document.getElementById('cancelEditBtn').style.display = 'none';
@@ -616,23 +624,39 @@
       document.getElementById('pWeight').value = '';
       document.getElementById('pPrice').value = '';
       document.getElementById('pStock').value = '';
-      document.getElementById('pImg').value = '';
+      document.getElementById('pFile').value = '';
       document.getElementById('pDesc').value = '';
     }
 
+    // Dosyayı Okuma (Base64 Dönüştürücü)
+    function resimOku(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+      });
+    }
+
     // Ürün Kaydet
-    window.urunKaydet = function() {
+    window.urunKaydet = async function() {
       const name = document.getElementById('pName').value.trim();
       const category = document.getElementById('pCategory').value;
       const dimensions = document.getElementById('pDimensions').value.trim();
       const weight = document.getElementById('pWeight').value.trim();
       const price = document.getElementById('pPrice').value.trim();
       const stock = document.getElementById('pStock').value.trim();
-      const img = document.getElementById('pImg').value.trim();
+      const fileInput = document.getElementById('pFile');
       const desc = document.getElementById('pDesc').value.trim();
 
-      if (!name || !price || !img || stock === "") {
-        alert("Lütfen ürün adı, fiyatı, stok adedi ve görsel bağlantısını doldurun!");
+      let imgData = currentEditImg;
+
+      if (fileInput.files.length > 0) {
+        imgData = await resimOku(fileInput.files[0]);
+      }
+
+      if (!name || !price || stock === "" || (!imgData && fileInput.files.length === 0)) {
+        alert("Lütfen ürün adı, fiyatı, stok adedi ve ürün görselini seçin!");
         return;
       }
 
@@ -643,7 +667,7 @@
         weight: weight,
         price: Number(price),
         stock: Number(stock),
-        img: img,
+        img: imgData,
         desc: desc
       };
 
